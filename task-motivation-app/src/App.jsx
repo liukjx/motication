@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Target, TrendingUp, Calendar, Star, BarChart3, Moon, Sun, Download, Upload, Loader2 } from 'lucide-react';
+import { Plus, Target, TrendingUp, Calendar, Star, BarChart3, Moon, Sun, Download, Upload, Loader2, Search } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import './App.css';
 
@@ -36,6 +36,13 @@ const api = {
       method: 'DELETE'
     });
     if (!response.ok) throw new Error('删除自定义任务失败');
+    return response.json();
+  },
+  
+  // 搜索自定义任务
+  searchCustomTasks: async (query) => {
+    const response = await fetch(`${API_BASE_URL}/custom-tasks/search?q=${encodeURIComponent(query)}`);
+    if (!response.ok) throw new Error('搜索自定义任务失败');
     return response.json();
   },
   
@@ -82,6 +89,8 @@ const api = {
 function App() {
   // 状态管理
   const [customTasks, setCustomTasks] = useState([]);
+  const [filteredCustomTasks, setFilteredCustomTasks] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [dailyTasks, setDailyTasks] = useState([]);
   const [stats, setStats] = useState({ totalScore: 0, totalTasks: 0, uniqueDays: 0, avgScorePerDay: 0 });
   const [trendData, setTrendData] = useState([]);
@@ -94,6 +103,23 @@ function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // 模糊搜索函数
+  const filterTasks = (tasks, query) => {
+    if (!query.trim()) return tasks;
+    
+    const lowerQuery = query.toLowerCase();
+    return tasks.filter(task => 
+      task.name.toLowerCase().includes(lowerQuery)
+    );
+  };
+
+  // 处理搜索输入
+  const handleSearchChange = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    setFilteredCustomTasks(filterTasks(customTasks, query));
+  };
 
   // 加载数据
   const loadData = async () => {
@@ -109,6 +135,7 @@ function App() {
       ]);
       
       setCustomTasks(customTasksData);
+      setFilteredCustomTasks(filterTasks(customTasksData, searchQuery));
       setDailyTasks(dailyTasksData);
       setStats(statsData);
       setTrendData(trendDataResult.map(item => ({
@@ -143,6 +170,11 @@ function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  // 当customTasks更新时，重新过滤
+  useEffect(() => {
+    setFilteredCustomTasks(filterTasks(customTasks, searchQuery));
+  }, [customTasks, searchQuery]);
 
   // 计算当日总分
   const getTodayScore = () => {
@@ -215,9 +247,9 @@ function App() {
   };
 
   // 删除任务
-  const deleteTask = async (taskId) => {
+  const deleteTask = async (id) => {
     try {
-      await api.deleteDailyTask(taskId);
+      await api.deleteDailyTask(id);
       await loadData(); // 重新加载数据
     } catch (err) {
       setError(err.message);
@@ -225,9 +257,9 @@ function App() {
   };
 
   // 删除自定义任务
-  const deleteCustomTask = async (taskId) => {
+  const deleteCustomTask = async (id) => {
     try {
-      await api.deleteCustomTask(taskId);
+      await api.deleteCustomTask(id);
       await loadData(); // 重新加载数据
     } catch (err) {
       setError(err.message);
@@ -239,8 +271,10 @@ function App() {
     const data = {
       customTasks,
       dailyTasks,
+      stats,
       exportDate: new Date().toISOString()
     };
+    
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -252,64 +286,63 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
-  // 导入数据（保留原有功能，但提示用户数据已迁移到服务器）
+  // 导入数据
   const importData = (event) => {
-    alert('数据已迁移到服务器，导入功能暂时不可用。如需导入数据，请联系管理员。');
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.customTasks) setCustomTasks(data.customTasks);
+        if (data.dailyTasks) setDailyTasks(data.dailyTasks);
+        if (data.stats) setStats(data.stats);
+        alert('数据导入成功！');
+      } catch (err) {
+        alert('导入失败：文件格式不正确');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">正在加载数据...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>加载中...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${
+    <div className={`min-h-screen transition-all duration-500 ${
       darkMode 
-        ? 'bg-gradient-to-br from-gray-900 to-gray-800' 
-        : 'bg-gradient-to-br from-blue-50 to-indigo-100'
-    } p-4`}>
-      <div className="max-w-7xl mx-auto">
-        {/* 错误提示 */}
-        {error && (
-          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-            <p>{error}</p>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setError('')}
-              className="mt-2"
-            >
-              关闭
-            </Button>
-          </div>
-        )}
-
+        ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white' 
+        : 'bg-gradient-to-br from-blue-50 to-purple-50 text-gray-900'
+    }`}>
+      <div className="container mx-auto p-6">
         {/* 头部 */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDarkMode(!darkMode)}
-                className="transition-all duration-300 hover:scale-105"
-              >
-                {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDarkMode(!darkMode)}
+              className="transition-all duration-300 hover:scale-110"
+            >
+              {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
             
-            <div className="flex items-center gap-2">
+            <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={exportData}
-                className="transition-all duration-300 hover:scale-105"
+                className="transition-all duration-300 hover:scale-110"
               >
                 <Download className="w-4 h-4 mr-1" />
                 导出
@@ -318,7 +351,7 @@ function App() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="transition-all duration-300 hover:scale-105"
+                  className="transition-all duration-300 hover:scale-110"
                   asChild
                 >
                   <span>
@@ -336,10 +369,7 @@ function App() {
             </div>
           </div>
           
-          <h1 className={`text-4xl font-bold mb-2 flex items-center justify-center gap-2 transition-colors duration-300 ${
-            darkMode ? 'text-white' : 'text-gray-800'
-          }`}>
-            <Target className="text-blue-600 animate-pulse" />
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             任务激励系统
           </h1>
           <p className={`transition-colors duration-300 ${
@@ -349,67 +379,63 @@ function App() {
           </p>
         </div>
 
-        {/* 日期选择器和当日分数 */}
-        <Card className="mb-6 transition-all duration-300 hover:shadow-lg">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <Calendar className="text-blue-600" />
-              <Input
-                type="date"
-                value={currentDate}
-                onChange={(e) => setCurrentDate(e.target.value)}
-                className="w-auto transition-all duration-300 focus:scale-105"
-              />
-              <div className="flex items-center gap-2 ml-auto">
-                <Star className="text-yellow-500 animate-spin" style={{animationDuration: '3s'}} />
-                <span className="text-2xl font-bold text-blue-600 transition-all duration-300">
-                  {getTodayScore()}
-                </span>
-                <span className={`transition-colors duration-300 ${
-                  darkMode ? 'text-gray-300' : 'text-gray-600'
-                }`}>分</span>
+        {/* 错误提示 */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg text-red-700 dark:text-red-300">
+            {error}
+          </div>
+        )}
+
+        {/* 当日分数显示 */}
+        <div className="mb-6">
+          <Card className="bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900/20 dark:to-orange-900/20 border-yellow-200 dark:border-yellow-700 transition-all duration-300 hover:shadow-lg">
+            <CardContent className="flex items-center justify-between p-6">
+              <div className="flex items-center gap-3">
+                <Calendar className="text-blue-600 w-6 h-6" />
+                <span className="text-lg font-medium">{currentDate}</span>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="flex items-center gap-2">
+                <Star className="text-yellow-500 w-6 h-6" />
+                <span className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                  {getTodayScore()} 分
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* 统计卡片 */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card className="transition-all duration-300 hover:shadow-lg hover:scale-105">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600 transition-all duration-300">
-                {stats.totalScore}
-              </div>
+            <CardContent className="p-6 text-center">
+              <div className="text-3xl font-bold text-blue-600 mb-2">{stats.totalScore}</div>
               <div className={`text-sm transition-colors duration-300 ${
                 darkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>总分数</div>
             </CardContent>
           </Card>
+          
           <Card className="transition-all duration-300 hover:shadow-lg hover:scale-105">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600 transition-all duration-300">
-                {stats.totalTasks}
-              </div>
+            <CardContent className="p-6 text-center">
+              <div className="text-3xl font-bold text-green-600 mb-2">{stats.totalTasks}</div>
               <div className={`text-sm transition-colors duration-300 ${
                 darkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>总任务数</div>
             </CardContent>
           </Card>
+          
           <Card className="transition-all duration-300 hover:shadow-lg hover:scale-105">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-purple-600 transition-all duration-300">
-                {stats.uniqueDays}
-              </div>
+            <CardContent className="p-6 text-center">
+              <div className="text-3xl font-bold text-purple-600 mb-2">{stats.uniqueDays}</div>
               <div className={`text-sm transition-colors duration-300 ${
                 darkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>活跃天数</div>
             </CardContent>
           </Card>
+          
           <Card className="transition-all duration-300 hover:shadow-lg hover:scale-105">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-orange-600 transition-all duration-300">
-                {stats.avgScorePerDay}
-              </div>
+            <CardContent className="p-6 text-center">
+              <div className="text-3xl font-bold text-orange-600 mb-2">{stats.avgScorePerDay}</div>
               <div className={`text-sm transition-colors duration-300 ${
                 darkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>日均分数</div>
@@ -417,10 +443,11 @@ function App() {
           </Card>
         </div>
 
+        {/* 主要内容区域 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* 左侧：任务添加区域 */}
+          {/* 左侧：添加任务和自定义任务 */}
           <div className="space-y-6">
-            {/* 手动添加任务 */}
+            {/* 添加新任务 */}
             <Card className="transition-all duration-300 hover:shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -447,7 +474,6 @@ function App() {
                   className="w-full transition-all duration-300 hover:scale-105"
                   disabled={!newTaskName.trim() || !newTaskScore}
                 >
-                  <Plus className="w-4 h-4 mr-2" />
                   添加任务
                 </Button>
               </CardContent>
@@ -472,6 +498,17 @@ function App() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* 搜索框 */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="搜索任务..."
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    className="pl-10 transition-all duration-300 focus:scale-105"
+                  />
+                </div>
+
                 {showAddCustomTask && (
                   <div className="space-y-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg transition-all duration-300 animate-in slide-in-from-top">
                     <Input
@@ -509,7 +546,7 @@ function App() {
                 )}
                 
                 <div className="grid grid-cols-1 gap-2">
-                  {customTasks.map((task) => (
+                  {filteredCustomTasks.map((task) => (
                     <div
                       key={task.id}
                       className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg border hover:shadow-md transition-all duration-300 cursor-pointer hover:scale-105"
@@ -533,6 +570,14 @@ function App() {
                     </div>
                   ))}
                 </div>
+                
+                {filteredCustomTasks.length === 0 && customTasks.length > 0 && searchQuery && (
+                  <p className={`text-center py-4 transition-colors duration-300 ${
+                    darkMode ? 'text-gray-400' : 'text-gray-500'
+                  }`}>
+                    没有找到匹配的任务
+                  </p>
+                )}
                 
                 {customTasks.length === 0 && (
                   <p className={`text-center py-4 transition-colors duration-300 ${
@@ -603,52 +648,39 @@ function App() {
             <Card className="transition-all duration-300 hover:shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="text-indigo-600" />
+                  <BarChart3 className="text-orange-600" />
                   近7天趋势
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
+                {trendData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={trendData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#374151' : '#E5E7EB'} />
+                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                       <XAxis 
                         dataKey="displayDate" 
-                        fontSize={12}
-                        tick={{ fill: darkMode ? '#9CA3AF' : '#6B7280' }}
+                        className={`text-xs ${darkMode ? 'fill-gray-400' : 'fill-gray-600'}`}
                       />
-                      <YAxis 
-                        fontSize={12}
-                        tick={{ fill: darkMode ? '#9CA3AF' : '#6B7280' }}
-                      />
+                      <YAxis className={`text-xs ${darkMode ? 'fill-gray-400' : 'fill-gray-600'}`} />
                       <Tooltip 
-                        labelFormatter={(label, payload) => {
-                          if (payload && payload[0]) {
-                            return payload[0].payload.date;
-                          }
-                          return label;
-                        }}
-                        formatter={(value) => [value + '分', '得分']}
                         contentStyle={{
-                          backgroundColor: darkMode ? '#1F2937' : '#F9FAFB',
-                          border: `1px solid ${darkMode ? '#374151' : '#E5E7EB'}`,
+                          backgroundColor: darkMode ? '#374151' : '#ffffff',
+                          border: '1px solid #e5e7eb',
                           borderRadius: '8px',
-                          color: darkMode ? '#F9FAFB' : '#1F2937'
+                          color: darkMode ? '#ffffff' : '#000000'
                         }}
                       />
                       <Line 
                         type="monotone" 
                         dataKey="score" 
-                        stroke="#3B82F6" 
+                        stroke="#8b5cf6" 
                         strokeWidth={3}
-                        dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                        activeDot={{ r: 6, stroke: '#3B82F6', strokeWidth: 2 }}
+                        dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 6 }}
+                        activeDot={{ r: 8, stroke: '#8b5cf6', strokeWidth: 2 }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
-                </div>
-                
-                {trendData.length === 0 && (
+                ) : (
                   <div className={`text-center py-8 transition-colors duration-300 ${
                     darkMode ? 'text-gray-400' : 'text-gray-500'
                   }`}>

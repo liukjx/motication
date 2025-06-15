@@ -34,6 +34,13 @@ CREATE TABLE daily_tasks (
 - **GET** `/api/custom-tasks`
 - **响应**: `[{id, name, score, created_at}]`
 
+#### 搜索自定义任务
+- **GET** `/api/custom-tasks/search?q=搜索词`
+- **参数**: 
+  - `q`: 搜索关键词（可选，为空时返回所有任务）
+- **响应**: `[{id, name, score, created_at}]`
+- **说明**: 支持模糊搜索，使用 SQL LIKE 操作符进行匹配
+
 #### 创建自定义任务
 - **POST** `/api/custom-tasks`
 - **请求体**: `{name: string, score: number}`
@@ -81,4 +88,12 @@ npm start
 ```
 
 服务器将在 http://0.0.0.0:3001 启动
+
+## 搜索功能说明
+
+新增的搜索功能支持：
+- 模糊匹配任务名称
+- 中文搜索支持
+- 空搜索词时返回所有任务
+- 按创建时间倒序排列结果
 

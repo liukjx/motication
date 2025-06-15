@@ -48,6 +48,33 @@ app.get('/api/custom-tasks', (req, res) => {
   });
 });
 
+// 搜索自定义任务
+app.get('/api/custom-tasks/search', (req, res) => {
+  const { q } = req.query;
+  
+  if (!q || q.trim() === '') {
+    // 如果没有搜索词，返回所有任务
+    db.all('SELECT * FROM custom_tasks ORDER BY created_at DESC', (err, rows) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json(rows);
+    });
+    return;
+  }
+
+  // 使用 LIKE 进行模糊搜索，支持中文
+  const searchTerm = `%${q.trim()}%`;
+  db.all('SELECT * FROM custom_tasks WHERE name LIKE ? ORDER BY created_at DESC', [searchTerm], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(rows);
+  });
+});
+
 // 创建自定义任务
 app.post('/api/custom-tasks', (req, res) => {
   const { name, score } = req.body;
