@@ -1,0 +1,9 @@
+{
+  "name": "task-motivation",
+  "scripts": {
+    "start": "concurrently \"cd task-motivation-app && npm run dev\" \"cd task-motivation-backend && npm start\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

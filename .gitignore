@@ -2,7 +2,7 @@
 node_modules/
 
 # 构建输出
-/dist
+dist
 
 # 本地数据库文件
 *.db
