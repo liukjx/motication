@@ -1,0 +1,25 @@
+# 依赖目录
+node_modules/
+
+# 构建输出
+/dist
+
+# 本地数据库文件
+*.db
+
+# 日志文件
+*.log
+
+# IDE配置
+.vscode/
+.idea/
+
+# 系统文件
+.DS_Store
+
+# 环境变量文件
+.env
+.env.local
+
+# 压缩包
+*.tar.gz
