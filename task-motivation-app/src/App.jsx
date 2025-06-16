@@ -10,7 +10,7 @@ import './App.css';
 // API基础URL
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
   ? 'https://3001-ijhfow5ihd3nivr04djl4-fb845e4a.manus.computer/api' 
-  : 'http://localhost:3001/api';
+  : 'http://192.168.31.158:3001/api';
 
 // API调用函数
 const api = {
