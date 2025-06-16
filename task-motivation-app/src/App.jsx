@@ -386,23 +386,29 @@ function App() {
           </div>
         )}
 
-        {/* 当日分数显示 */}
-        <div className="mb-6">
-          <Card className="bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900/20 dark:to-orange-900/20 border-yellow-200 dark:border-yellow-700 transition-all duration-300 hover:shadow-lg">
-            <CardContent className="flex items-center justify-between p-6">
-              <div className="flex items-center gap-3">
-                <Calendar className="text-blue-600 w-6 h-6" />
-                <span className="text-lg font-medium">{currentDate}</span>
+         {/* 日期选择器和当日分数 */}
+         <Card className="mb-6 transition-all duration-300 hover:shadow-lg">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              <Calendar className="text-blue-600" />
+              <Input
+                type="date"
+                value={currentDate}
+                onChange={(e) => setCurrentDate(e.target.value)}
+                className="w-auto transition-all duration-300 focus:scale-105"
+              />
+              <div className="flex items-center gap-2 ml-auto">
+                <Star className="text-yellow-500 animate-spin" style={{animationDuration: '3s'}} />
+                <span className="text-2xl font-bold text-blue-600 transition-all duration-300">
+                  {getTodayScore()}
+                  </span>
+                  <span className={`transition-colors duration-300 ${
+                  darkMode ? 'text-gray-300' : 'text-gray-600'
+                }`}>分</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Star className="text-yellow-500 w-6 h-6" />
-                <span className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                  {getTodayScore()} 分
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* 统计卡片 */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
