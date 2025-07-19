@@ -94,7 +94,7 @@ function App() {
   const [dailyTasks, setDailyTasks] = useState([]);
   const [stats, setStats] = useState({ totalScore: 0, totalTasks: 0, uniqueDays: 0, avgScorePerDay: 0 });
   const [trendData, setTrendData] = useState([]);
-  const [trendDays, setTrendDays] = useState(7);
+  const [trendDays, setTrendDays] = useState(30);
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskScore, setNewTaskScore] = useState('');
   const [newCustomTaskName, setNewCustomTaskName] = useState('');
@@ -665,20 +665,20 @@ function App() {
                   </div>
                   <div className="flex gap-1">
                     <Button
-                      variant={trendDays === 7 ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTrendDays(7)}
-                      className="transition-all duration-300 hover:scale-105"
-                    >
-                      7天
-                    </Button>
-                    <Button
                       variant={trendDays === 30 ? "default" : "outline"}
                       size="sm"
                       onClick={() => setTrendDays(30)}
                       className="transition-all duration-300 hover:scale-105"
                     >
                       30天
+                    </Button>
+                    <Button
+                      variant={trendDays === 7 ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTrendDays(7)}
+                      className="transition-all duration-300 hover:scale-105"
+                    >
+                      7天
                     </Button>
                   </div>
                 </CardTitle>
