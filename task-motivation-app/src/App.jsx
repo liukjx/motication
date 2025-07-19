@@ -94,6 +94,7 @@ function App() {
   const [dailyTasks, setDailyTasks] = useState([]);
   const [stats, setStats] = useState({ totalScore: 0, totalTasks: 0, uniqueDays: 0, avgScorePerDay: 0 });
   const [trendData, setTrendData] = useState([]);
+  const [trendDays, setTrendDays] = useState(7);
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskScore, setNewTaskScore] = useState('');
   const [newCustomTaskName, setNewCustomTaskName] = useState('');
@@ -131,7 +132,7 @@ function App() {
         api.getCustomTasks(),
         api.getDailyTasks(),
         api.getStats(),
-        api.getTrend(7)
+        api.getTrend(trendDays)
       ]);
       
       setCustomTasks(customTasksData);
@@ -140,7 +141,11 @@ function App() {
       setStats(statsData);
       setTrendData(trendDataResult.map(item => ({
         ...item,
-        displayDate: new Date(item.date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+        displayDate: new Date(item.date).toLocaleDateString('zh-CN', { 
+          month: 'short', 
+          day: 'numeric',
+          ...(trendDays === 30 && { month: 'numeric', day: 'numeric' })
+        })
       })));
     } catch (err) {
       setError(err.message);
@@ -159,7 +164,7 @@ function App() {
     if (savedDarkMode) {
       setDarkMode(JSON.parse(savedDarkMode));
     }
-  }, []);
+  }, [trendDays]);
 
   // 主题切换
   useEffect(() => {
@@ -653,9 +658,29 @@ function App() {
           <div>
             <Card className="transition-all duration-300 hover:shadow-lg">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="text-orange-600" />
-                  近7天趋势
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="text-orange-600" />
+                    近{trendDays}天趋势
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant={trendDays === 7 ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTrendDays(7)}
+                      className="transition-all duration-300 hover:scale-105"
+                    >
+                      7天
+                    </Button>
+                    <Button
+                      variant={trendDays === 30 ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTrendDays(30)}
+                      className="transition-all duration-300 hover:scale-105"
+                    >
+                      30天
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -692,7 +717,7 @@ function App() {
                   }`}>
                     <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
                     <p>暂无历史数据</p>
-                    <p className="text-sm">完成更多任务来查看趋势图</p>
+                    <p className="text-sm">完成更多任务来查看{trendDays}天趋势图</p>
                   </div>
                 )}
               </CardContent>
