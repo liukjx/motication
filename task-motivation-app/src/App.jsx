@@ -100,7 +100,7 @@ function App() {
   const [newCustomTaskScore, setNewCustomTaskScore] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
   const [showAddCustomTask, setShowAddCustomTask] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
