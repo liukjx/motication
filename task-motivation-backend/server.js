@@ -217,6 +217,46 @@ app.get('/api/trend', (req, res) => {
   });
 });
 
+// 获取自定义任务使用频率统计
+app.get('/api/custom-tasks/frequency', (req, res) => {
+  const { sort = 'created_at' } = req.query;
+  
+  let orderBy = 'created_at DESC';
+  switch(sort) {
+    case 'score':
+      orderBy = 'score DESC, created_at DESC';
+      break;
+    case 'frequency':
+      orderBy = 'usage_count DESC, created_at DESC';
+      break;
+    case 'created_at':
+    default:
+      orderBy = 'created_at DESC';
+      break;
+  }
+  
+  const query = `
+    SELECT 
+      ct.*,
+      COALESCE(dt.usage_count, 0) as usage_count
+    FROM custom_tasks ct
+    LEFT JOIN (
+      SELECT name, COUNT(*) as usage_count
+      FROM daily_tasks
+      GROUP BY name
+    ) dt ON ct.name = dt.name
+    ORDER BY ${orderBy}
+  `;
+  
+  db.all(query, (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(rows);
+  });
+});
+
 // 健康检查
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });

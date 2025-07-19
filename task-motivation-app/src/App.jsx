@@ -21,6 +21,12 @@ const api = {
     return response.json();
   },
   
+  getCustomTasksWithFrequency: async (sort = 'created_at') => {
+    const response = await fetch(`${API_BASE_URL}/custom-tasks/frequency?sort=${sort}`);
+    if (!response.ok) throw new Error('获取自定义任务频率失败');
+    return response.json();
+  },
+  
   createCustomTask: async (task) => {
     const response = await fetch(`${API_BASE_URL}/custom-tasks`, {
       method: 'POST',
@@ -91,6 +97,8 @@ function App() {
   const [customTasks, setCustomTasks] = useState([]);
   const [filteredCustomTasks, setFilteredCustomTasks] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [customTasksLayout, setCustomTasksLayout] = useState('grid'); // 'grid' or 'list'
+  const [customTasksSort, setCustomTasksSort] = useState('created_at'); // 'created_at', 'score', 'frequency'
   const [dailyTasks, setDailyTasks] = useState([]);
   const [stats, setStats] = useState({ totalScore: 0, totalTasks: 0, uniqueDays: 0, avgScorePerDay: 0 });
   const [trendData, setTrendData] = useState([]);
@@ -129,7 +137,7 @@ function App() {
       setError('');
       
       const [customTasksData, dailyTasksData, statsData, trendDataResult] = await Promise.all([
-        api.getCustomTasks(),
+        api.getCustomTasksWithFrequency(customTasksSort),
         api.getDailyTasks(),
         api.getStats(),
         api.getTrend(trendDays)
@@ -159,14 +167,23 @@ function App() {
   useEffect(() => {
     loadData();
     
-    // 从localStorage加载主题设置
+    // 从localStorage加载主题设置和偏好
     const savedDarkMode = localStorage.getItem('darkMode');
+    const savedLayout = localStorage.getItem('customTasksLayout');
+    const savedSort = localStorage.getItem('customTasksSort');
+    
     if (savedDarkMode) {
       setDarkMode(JSON.parse(savedDarkMode));
     }
-  }, [trendDays]);
+    if (savedLayout) {
+      setCustomTasksLayout(savedLayout);
+    }
+    if (savedSort) {
+      setCustomTasksSort(savedSort);
+    }
+  }, [trendDays, customTasksSort]);
 
-  // 主题切换
+  // 主题切换和偏好保存
   useEffect(() => {
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
     if (darkMode) {
@@ -175,6 +192,14 @@ function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  useEffect(() => {
+    localStorage.setItem('customTasksLayout', customTasksLayout);
+  }, [customTasksLayout]);
+
+  useEffect(() => {
+    localStorage.setItem('customTasksSort', customTasksSort);
+  }, [customTasksSort]);
 
   // 当customTasks更新时，重新过滤
   useEffect(() => {
@@ -498,14 +523,49 @@ function App() {
                     <TrendingUp className="text-purple-600" />
                     快速任务
                   </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAddCustomTask(!showAddCustomTask)}
-                    className="transition-all duration-300 hover:scale-110"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <!-- 排序选择 -->
+                    <select
+                      value={customTasksSort}
+                      onChange={(e) => setCustomTasksSort(e.target.value)}
+                      className="text-sm px-2 py-1 border rounded-md bg-background"
+                    >
+                      <option value="created_at">按时间</option>
+                      <option value="score">按分数</option>
+                      <option value="frequency">按频率</option>
+                    </select>
+                    
+                    <!-- 布局切换 -->
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCustomTasksLayout(customTasksLayout === 'grid' ? 'list' : 'grid')}
+                      className="transition-all duration-300 hover:scale-105"
+                    >
+                      {customTasksLayout === 'grid' ? (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                          </svg>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 14a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 14a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                          </svg>
+                        </>
+                      )}
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAddCustomTask(!showAddCustomTask)}
+                      className="transition-all duration-300 hover:scale-110"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -556,46 +616,53 @@ function App() {
                   </div>
                 )}
                 
-                <div className="grid grid-cols-1 gap-2">
-                  {filteredCustomTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg border hover:shadow-md transition-all duration-300 cursor-pointer hover:scale-105"
-                      onClick={() => addCustomTaskToToday(task)}
-                    >
-                      <span className="font-medium">{task.name}</span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary">{task.score}分</Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteCustomTask(task.id);
-                          }}
-                          className="text-red-500 hover:text-red-700 transition-all duration-300 hover:scale-110"
-                        >
-                          ×
-                        </Button>
+                {filteredCustomTasks.length > 0 ? (
+                  <div className={customTasksLayout === 'grid' 
+                    ? 'grid grid-cols-2 md:grid-cols-3 gap-3' 
+                    : 'space-y-2'
+                  }>
+                    {filteredCustomTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        className={`p-3 bg-white dark:bg-gray-700 rounded-lg border hover:shadow-md transition-all duration-300 cursor-pointer hover:scale-105 ${
+                          customTasksLayout === 'grid' ? 'text-center' : 'flex items-center justify-between'
+                        }`}
+                        onClick={() => addCustomTaskToToday(task)}
+                      >
+                        <div className={customTasksLayout === 'grid' ? 'mb-2' : ''}>
+                          <div className="font-medium text-sm">{task.name}</div>
+                          <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            {task.score}分
+                            {task.usage_count > 0 && (
+                              <span className="ml-1">· {task.usage_count}次</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className={customTasksLayout === 'grid' ? 'flex justify-center' : ''}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteCustomTask(task.id);
+                            }}
+                            className="text-red-500 hover:text-red-700 transition-all duration-300 hover:scale-110"
+                          >
+                            ×
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-                
-                {filteredCustomTasks.length === 0 && customTasks.length > 0 && searchQuery && (
-                  <p className={`text-center py-4 transition-colors duration-300 ${
+                    ))}
+                  </div>
+                ) : (
+                  <div className={`text-center py-8 transition-colors duration-300 ${
                     darkMode ? 'text-gray-400' : 'text-gray-500'
                   }`}>
-                    没有找到匹配的任务
-                  </p>
-                )}
-                
-                {customTasks.length === 0 && (
-                  <p className={`text-center py-4 transition-colors duration-300 ${
-                    darkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`}>
-                    暂无自定义任务，点击 + 添加常用任务
-                  </p>
+                    <TrendingUp className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>{searchQuery ? '没有找到匹配的任务' : '暂无自定义任务'}</p>
+                    <p className="text-sm">{searchQuery ? '' : '点击 + 按钮添加常用任务'}</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
