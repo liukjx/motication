@@ -136,15 +136,12 @@ function App() {
       setLoading(true);
       setError('');
       
-      const [customTasksData, dailyTasksData, statsData, trendDataResult] = await Promise.all([
-        api.getCustomTasksWithFrequency(customTasksSort),
+      const [dailyTasksData, statsData, trendDataResult] = await Promise.all([
         api.getDailyTasks(),
         api.getStats(),
         api.getTrend(trendDays)
       ]);
       
-      setCustomTasks(customTasksData);
-      setFilteredCustomTasks(filterTasks(customTasksData, searchQuery));
       setDailyTasks(dailyTasksData);
       setStats(statsData);
       setTrendData(trendDataResult.map(item => ({
@@ -155,11 +152,26 @@ function App() {
           ...(trendDays === 30 && { month: 'numeric', day: 'numeric' })
         })
       })));
+      
+      // 单独加载自定义任务
+      await loadCustomTasks();
     } catch (err) {
       setError(err.message);
       console.error('加载数据失败:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 独立加载自定义任务
+  const loadCustomTasks = async () => {
+    try {
+      const customTasksData = await api.getCustomTasksWithFrequency(customTasksSort);
+      setCustomTasks(customTasksData);
+      setFilteredCustomTasks(filterTasks(customTasksData, searchQuery));
+    } catch (err) {
+      setError(err.message);
+      console.error('加载自定义任务失败:', err);
     }
   };
 
@@ -181,7 +193,7 @@ function App() {
     if (savedSort) {
       setCustomTasksSort(savedSort);
     }
-  }, [trendDays, customTasksSort]);
+  }, [trendDays]);
 
   // 主题切换和偏好保存
   useEffect(() => {
@@ -199,9 +211,11 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem('customTasksSort', customTasksSort);
+    // 只在排序变化时刷新自定义任务，不刷新整个页面
+    loadCustomTasks();
   }, [customTasksSort]);
 
-  // 当customTasks更新时，重新过滤
+  // 当customTasks或搜索查询更新时，重新过滤
   useEffect(() => {
     setFilteredCustomTasks(filterTasks(customTasks, searchQuery));
   }, [customTasks, searchQuery]);
@@ -480,193 +494,226 @@ function App() {
         </div>
 
         {/* 主要内容区域 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* 左侧：添加任务和自定义任务 */}
-          <div className="space-y-6">
-            {/* 添加新任务 */}
-            <Card className="transition-all duration-300 hover:shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="text-green-600" />
-                  添加新任务
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Input
-                  placeholder="任务名称"
-                  value={newTaskName}
-                  onChange={(e) => setNewTaskName(e.target.value)}
-                  className="transition-all duration-300 focus:scale-105"
-                />
-                <Input
-                  type="number"
-                  placeholder="分数"
-                  value={newTaskScore}
-                  onChange={(e) => setNewTaskScore(e.target.value)}
-                  className="transition-all duration-300 focus:scale-105"
-                />
-                <Button 
-                  onClick={addManualTask} 
-                  className="w-full transition-all duration-300 hover:scale-105"
-                  disabled={!newTaskName.trim() || !newTaskScore}
-                >
-                  添加任务
-                </Button>
-              </CardContent>
-            </Card>
+        <div className="space-y-6">
 
-            {/* 自定义任务 */}
+          {/* 上侧 趋势图 */}
+          <div>
             <Card className="transition-all duration-300 hover:shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <TrendingUp className="text-purple-600" />
-                    快速任务
-                  </span>
                   <div className="flex items-center gap-2">
-                    <!-- 排序选择 -->
-                    <select
-                      value={customTasksSort}
-                      onChange={(e) => setCustomTasksSort(e.target.value)}
-                      className="text-sm px-2 py-1 border rounded-md bg-background"
-                    >
-                      <option value="created_at">按时间</option>
-                      <option value="score">按分数</option>
-                      <option value="frequency">按频率</option>
-                    </select>
-                    
-                    <!-- 布局切换 -->
+                    <BarChart3 className="text-orange-600" />
+                    近{trendDays}天趋势
+                  </div>
+                  <div className="flex gap-1">
                     <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCustomTasksLayout(customTasksLayout === 'grid' ? 'list' : 'grid')}
-                      className="transition-all duration-300 hover:scale-105"
+                        variant={trendDays === 30 ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setTrendDays(30)}
+                        className="transition-all duration-300 hover:scale-105"
                     >
-                      {customTasksLayout === 'grid' ? (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                          </svg>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 14a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 14a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                          </svg>
-                        </>
-                      )}
+                      30天
                     </Button>
-                    
                     <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowAddCustomTask(!showAddCustomTask)}
-                      className="transition-all duration-300 hover:scale-110"
+                        variant={trendDays === 7 ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setTrendDays(7)}
+                        className="transition-all duration-300 hover:scale-105"
                     >
-                      <Plus className="w-4 h-4" />
+                      7天
                     </Button>
                   </div>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* 搜索框 */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="搜索任务..."
-                    value={searchQuery}
-                    onChange={handleSearchChange}
-                    className="pl-10 transition-all duration-300 focus:scale-105"
-                  />
-                </div>
-
-                {showAddCustomTask && (
-                  <div className="space-y-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg transition-all duration-300 animate-in slide-in-from-top">
-                    <Input
-                      placeholder="自定义任务名称"
-                      value={newCustomTaskName}
-                      onChange={(e) => setNewCustomTaskName(e.target.value)}
-                      className="transition-all duration-300 focus:scale-105"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="分数"
-                      value={newCustomTaskScore}
-                      onChange={(e) => setNewCustomTaskScore(e.target.value)}
-                      className="transition-all duration-300 focus:scale-105"
-                    />
-                    <div className="flex gap-2">
-                      <Button 
-                        onClick={addCustomTask} 
-                        size="sm"
-                        className="transition-all duration-300 hover:scale-105"
-                        disabled={!newCustomTaskName.trim() || !newCustomTaskScore}
-                      >
-                        保存
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowAddCustomTask(false)}
-                        className="transition-all duration-300 hover:scale-105"
-                      >
-                        取消
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                
-                {filteredCustomTasks.length > 0 ? (
-                  <div className={customTasksLayout === 'grid' 
-                    ? 'grid grid-cols-2 md:grid-cols-3 gap-3' 
-                    : 'space-y-2'
-                  }>
-                    {filteredCustomTasks.map((task) => (
-                      <div
-                        key={task.id}
-                        className={`p-3 bg-white dark:bg-gray-700 rounded-lg border hover:shadow-md transition-all duration-300 cursor-pointer hover:scale-105 ${
-                          customTasksLayout === 'grid' ? 'text-center' : 'flex items-center justify-between'
-                        }`}
-                        onClick={() => addCustomTaskToToday(task)}
-                      >
-                        <div className={customTasksLayout === 'grid' ? 'mb-2' : ''}>
-                          <div className="font-medium text-sm">{task.name}</div>
-                          <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            {task.score}分
-                            {task.usage_count > 0 && (
-                              <span className="ml-1">· {task.usage_count}次</span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className={customTasksLayout === 'grid' ? 'flex justify-center' : ''}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteCustomTask(task.id);
+              <CardContent>
+                {trendData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={trendData}>
+                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                        <XAxis
+                            dataKey="displayDate"
+                            className={`text-xs ${darkMode ? 'fill-gray-400' : 'fill-gray-600'}`}
+                        />
+                        <YAxis className={`text-xs ${darkMode ? 'fill-gray-400' : 'fill-gray-600'}`} />
+                        <Tooltip
+                            contentStyle={{
+                              backgroundColor: darkMode ? '#374151' : '#ffffff',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '8px',
+                              color: darkMode ? '#ffffff' : '#000000'
                             }}
-                            className="text-red-500 hover:text-red-700 transition-all duration-300 hover:scale-110"
-                          >
-                            ×
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                        />
+                        <Line
+                            type="monotone"
+                            dataKey="score"
+                            stroke="#8b5cf6"
+                            strokeWidth={3}
+                            dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 6 }}
+                            activeDot={{ r: 8, stroke: '#8b5cf6', strokeWidth: 2 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
                 ) : (
-                  <div className={`text-center py-8 transition-colors duration-300 ${
-                    darkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`}>
-                    <TrendingUp className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>{searchQuery ? '没有找到匹配的任务' : '暂无自定义任务'}</p>
-                    <p className="text-sm">{searchQuery ? '' : '点击 + 按钮添加常用任务'}</p>
-                  </div>
+                    <div className={`text-center py-8 transition-colors duration-300 ${
+                        darkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>暂无历史数据</p>
+                      <p className="text-sm">完成更多任务来查看{trendDays}天趋势图</p>
+                    </div>
                 )}
               </CardContent>
             </Card>
           </div>
+          {/* 快速任务模块 - 100%宽度 */}
+          <Card className="transition-all duration-300 hover:shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <TrendingUp className="text-purple-600" />
+                  快速任务
+                </span>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={customTasksSort}
+                    onChange={(e) => setCustomTasksSort(e.target.value)}
+                    className="text-sm px-2 py-1 border rounded-md bg-background"
+                  >
+                    <option value="created_at">按时间</option>
+                    <option value="score">按分数</option>
+                    <option value="frequency">按频率</option>
+                  </select>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCustomTasksLayout(customTasksLayout === 'grid' ? 'list' : 'grid')}
+                    className="transition-all duration-300 hover:scale-105"
+                  >
+                    {customTasksLayout === 'grid' ? (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 14a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 14a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                        </svg>
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAddCustomTask(!showAddCustomTask)}
+                    className="transition-all duration-300 hover:scale-110"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 搜索框 */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="搜索任务..."
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  className="pl-10 transition-all duration-300 focus:scale-105"
+                />
+              </div>
+
+              {showAddCustomTask && (
+                <div className="space-y-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg transition-all duration-300 animate-in slide-in-from-top">
+                  <Input
+                    placeholder="自定义任务名称"
+                    value={newCustomTaskName}
+                    onChange={(e) => setNewCustomTaskName(e.target.value)}
+                    className="transition-all duration-300 focus:scale-105"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="分数"
+                    value={newCustomTaskScore}
+                    onChange={(e) => setNewCustomTaskScore(e.target.value)}
+                    className="transition-all duration-300 focus:scale-105"
+                  />
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={addCustomTask} 
+                      size="sm"
+                      className="transition-all duration-300 hover:scale-105"
+                      disabled={!newCustomTaskName.trim() || !newCustomTaskScore}
+                    >
+                      保存
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAddCustomTask(false)}
+                      className="transition-all duration-300 hover:scale-105"
+                    >
+                      取消
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              {filteredCustomTasks.length > 0 ? (
+                <div className={customTasksLayout === 'grid' 
+                  ? 'grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3' 
+                  : 'space-y-2'
+                }>
+                  {filteredCustomTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className={`p-3 bg-white dark:bg-gray-700 rounded-lg border hover:shadow-md transition-all duration-300 cursor-pointer hover:scale-105 ${
+                        customTasksLayout === 'grid' ? 'text-center' : 'flex items-center justify-between'
+                      }`}
+                      onClick={() => addCustomTaskToToday(task)}
+                    >
+                      <div className={customTasksLayout === 'grid' ? 'mb-2' : ''}>
+                        <div className="font-medium text-sm">{task.name}</div>
+                        <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          {task.score}分
+                          {task.usage_count > 0 && (
+                            <span className="ml-1">· {task.usage_count}次</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className={customTasksLayout === 'grid' ? 'flex justify-center' : ''}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteCustomTask(task.id);
+                          }}
+                          className="text-red-500 hover:text-red-700 transition-all duration-300 hover:scale-110"
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={`text-center py-8 transition-colors duration-300 ${
+                  darkMode ? 'text-gray-400' : 'text-gray-500'
+                }`}>
+                  <TrendingUp className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>{searchQuery ? '没有找到匹配的任务' : '暂无自定义任务'}</p>
+                  <p className="text-sm">{searchQuery ? '' : '点击 + 按钮添加常用任务'}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* 中间：今日任务列表 */}
           <div>
@@ -721,75 +768,7 @@ function App() {
             </Card>
           </div>
 
-          {/* 右侧：趋势图 */}
-          <div>
-            <Card className="transition-all duration-300 hover:shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="text-orange-600" />
-                    近{trendDays}天趋势
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant={trendDays === 30 ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTrendDays(30)}
-                      className="transition-all duration-300 hover:scale-105"
-                    >
-                      30天
-                    </Button>
-                    <Button
-                      variant={trendDays === 7 ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTrendDays(7)}
-                      className="transition-all duration-300 hover:scale-105"
-                    >
-                      7天
-                    </Button>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {trendData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={trendData}>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis 
-                        dataKey="displayDate" 
-                        className={`text-xs ${darkMode ? 'fill-gray-400' : 'fill-gray-600'}`}
-                      />
-                      <YAxis className={`text-xs ${darkMode ? 'fill-gray-400' : 'fill-gray-600'}`} />
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: darkMode ? '#374151' : '#ffffff',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '8px',
-                          color: darkMode ? '#ffffff' : '#000000'
-                        }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="score" 
-                        stroke="#8b5cf6" 
-                        strokeWidth={3}
-                        dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 6 }}
-                        activeDot={{ r: 8, stroke: '#8b5cf6', strokeWidth: 2 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className={`text-center py-8 transition-colors duration-300 ${
-                    darkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`}>
-                    <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>暂无历史数据</p>
-                    <p className="text-sm">完成更多任务来查看{trendDays}天趋势图</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+
         </div>
       </div>
     </div>
